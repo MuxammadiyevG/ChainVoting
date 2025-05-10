@@ -1,0 +1,286 @@
+{% extends "layout.html" %}
+
+{% block title %}Natijalar{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="display-4 text-primary">Saylov natijalari</h1>
+                {% if active_election %}
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success p-3 fs-5 me-2">
+                        <i class="fas fa-vote-yea me-2"></i>Saylov faol
+                    </span>
+                    <h3 class="mb-0 ms-3">{{ active_election.title }}</h3>
+                </div>
+                {% else %}
+                <div class="badge bg-secondary p-3 fs-5">
+                    <i class="fas fa-check-circle me-2"></i>Saylov yakunlangan
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if not candidates %}
+    <div class="alert alert-info shadow-sm">
+        <h3 class="mb-0"><i class="fas fa-info-circle me-2"></i>Hozirda natijalar mavjud emas</h3>
+    </div>
+    {% else %}
+    
+    <!-- Ovozlar diagrammasi -->
+    <div class="row mb-5">
+        <div class="col-lg-8 col-md-10 mx-auto">
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4"><i class="fas fa-chart-pie me-2"></i>Umumiy natijalar</h3>
+                    <div class="chart-container" style="position: relative; height:400px;">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nomzodlar jadvali -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-header bg-white p-4 border-0">
+                    <h3 class="card-title mb-0"><i class="fas fa-list-ol me-2"></i>Nomzodlar reytingi</h3>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="py-3 ps-4" style="width: 50px;">#</th>
+                                    <th class="py-3">Nomzod</th>
+                                    <th class="py-3">Partiya</th>
+                                    <th class="py-3">Ovozlar</th>
+                                    <th class="py-3">Foiz</th>
+                                    <th class="py-3 pe-4">Grafik</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set total_votes = candidates|sum(attribute='votes') %}
+                                {% for candidate in candidates|sort(attribute='votes', reverse=true) %}
+                                <tr>
+                                    <td class="ps-4">{{ loop.index }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if candidate.image_url %}
+                                            <img src="{{ candidate.image_url }}" class="rounded-circle me-3" width="50" height="50" style="object-fit: cover;" alt="{{ candidate.full_name or candidate.name }}">
+                                            {% else %}
+                                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                                <i class="fas fa-user text-secondary"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <h5 class="mb-0">{{ candidate.full_name or candidate.name }}</h5>
+                                                <p class="text-muted mb-0">ID: {{ candidate.id }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ candidate.party or '—' }}</td>
+                                    <td class="fw-bold">{{ candidate.votes }}</td>
+                                    <td>
+                                        {% set percentage = (candidate.votes / total_votes * 100) if total_votes else 0 %}
+                                        <span class="fw-bold">{{ "%.2f"|format(percentage) }}%</span>
+                                    </td>
+                                    <td class="pe-4">
+                                        <div class="progress" style="height: 10px; width: 100%;">
+                                            {% set percentage = (candidate.votes / total_votes * 100) if total_votes else 0 %}
+                                            {% if loop.index == 1 %}
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ percentage }}%"></div>
+                                            {% elif loop.index == 2 %}
+                                                <div class="progress-bar bg-primary" role="progressbar" style="width: {{ percentage }}%"></div>
+                                            {% elif loop.index == 3 %}
+                                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ percentage }}%"></div>
+                                            {% else %}
+                                                <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ percentage }}%"></div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white p-4 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-users text-primary me-2"></i>
+                        <span class="fw-bold">Jami ovozlar: {{ total_votes }}</span>
+                    </div>
+                    <div>
+                        <a href="#" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-2"></i>Natijalarni yuklab olish
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Saylov statistikasi -->
+    <div class="row mt-5">
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="stats-icon bg-primary text-white">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h4 class="ms-3 mb-0">Ishtirokchilar</h4>
+                    </div>
+                    <div class="text-center p-3">
+                        <h2 class="display-4 fw-bold">{{ total_votes }}</h2>
+                        <p class="text-muted">Jami ovoz bergan foydalanuvchilar</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="stats-icon bg-success text-white">
+                            <i class="fas fa-award"></i>
+                        </div>
+                        <h4 class="ms-3 mb-0">Yetakchi</h4>
+                    </div>
+                    <div class="text-center p-3">
+                        {% set top_candidate = candidates|sort(attribute='votes', reverse=true)|first %}
+                        <h2 class="display-6 fw-bold">{{ top_candidate.full_name or top_candidate.name }}</h2>
+                        <div class="d-flex justify-content-center">
+                            <span class="badge bg-success py-2 px-3 fs-6">{{ top_candidate.votes }} ovoz</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="stats-icon bg-warning text-white">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <h4 class="ms-3 mb-0">Holat</h4>
+                    </div>
+                    <div class="text-center p-3">
+                        {% if active_election %}
+                        <h2 class="display-6 fw-bold text-success">Faol</h2>
+                        <p class="text-muted">Saylov davom etmoqda</p>
+                        {% else %}
+                        <h2 class="display-6 fw-bold text-secondary">Yakunlandi</h2>
+                        <p class="text-muted">Saylov tugadi</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h4 class="mb-3"><i class="fas fa-lock me-2"></i>Blockchain xavfsizligi</h4>
+                    <p class="mb-0">Barcha ovozlar blockchain texnologiyasi yordamida himoyalanadi va o'zgartirib bo'lmaydi. Har bir ovoz Ethereum tarmog'ida saqlangan va ochiq tekshirilishi mumkin.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Diagrammani yaratish
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('resultsChart');
+        
+        if (ctx) {
+            const candidateNames = [{% for candidate in candidates|sort(attribute='votes', reverse=true) %}'{{ candidate.full_name or candidate.name }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+            const candidateVotes = [{% for candidate in candidates|sort(attribute='votes', reverse=true) %}{{ candidate.votes }}{% if not loop.last %}, {% endif %}{% endfor %}];
+            const backgroundColors = [
+                'rgba(40, 167, 69, 0.8)',  // success
+                'rgba(13, 110, 253, 0.8)', // primary
+                'rgba(13, 202, 240, 0.8)', // info
+                'rgba(255, 193, 7, 0.8)',  // warning
+                'rgba(108, 117, 125, 0.8)',  // secondary
+                'rgba(220, 53, 69, 0.8)',  // danger
+                'rgba(111, 66, 193, 0.8)',  // indigo
+                'rgba(253, 126, 20, 0.8)',  // orange
+                'rgba(32, 201, 151, 0.8)',  // teal
+                'rgba(214, 51, 132, 0.8)'   // pink
+            ];
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: candidateNames,
+                    datasets: [{
+                        label: 'Ovozlar',
+                        data: candidateVotes,
+                        backgroundColor: backgroundColors.slice(0, candidateNames.length),
+                        borderColor: backgroundColors.slice(0, candidateNames.length),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                display: true,
+                                drawBorder: false
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .rounded-4 {
+        border-radius: 1rem!important;
+    }
+    
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}

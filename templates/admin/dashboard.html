@@ -1,0 +1,164 @@
+{% extends 'layout.html' %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Admin boshqaruv paneli</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="stats-item">
+                                <i class="fas fa-users"></i>
+                                <div class="stats-number">{{ users_count }}</div>
+                                <div class="stats-name">Foydalanuvchilar</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-item">
+                                <i class="fas fa-user-tie"></i>
+                                <div class="stats-number">{{ candidates_count }}</div>
+                                <div class="stats-name">Nomzodlar</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-item">
+                                <i class="fas fa-vote-yea"></i>
+                                <div class="stats-number">{{ elections_count }}</div>
+                                <div class="stats-name">Saylovlar</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-item">
+                                <i class="fas fa-link"></i>
+                                <div class="stats-number">
+                                    <span class="status-indicator {% if blockchain_status == 'Ulangan' %}status-active{% else %}status-inactive{% endif %}"></span>
+                                    {{ blockchain_status }}
+                                </div>
+                                <div class="stats-name">Blockchain holati</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Tizim boshqaruvi</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('add_candidate') }}" class="btn btn-primary">
+                            <i class="fas fa-user-plus me-2"></i>Yangi nomzod qo'shish
+                        </a>
+                        <a href="{{ url_for('manage_users') }}" class="btn btn-secondary">
+                            <i class="fas fa-users-cog me-2"></i>Foydalanuvchilarni boshqarish
+                        </a>
+                        <a href="{{ url_for('manage_elections') }}" class="btn btn-info">
+                            <i class="fas fa-vote-yea me-2"></i>Saylovlarni boshqarish
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Joriy saylov holati</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_election %}
+                    <h5>{{ active_election.title }}</h5>
+                    <p>{{ active_election.description }}</p>
+                    <div class="mb-3">
+                        <strong>Boshlanish sanasi:</strong> {{ active_election.start_date.strftime('%d.%m.%Y') }}<br>
+                        <strong>Tugash sanasi:</strong> {{ active_election.end_date.strftime('%d.%m.%Y') }}<br>
+                        <strong>Holati:</strong> 
+                        <span class="badge rounded-pill {% if election_status == 'Aktiv' %}bg-success{% elif election_status == 'Yakunlangan' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ election_status }}
+                        </span>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {% if election_status == 'Nofaol' %}
+                        <a href="{{ url_for('start_election', election_id=active_election.id) }}" class="btn btn-success">
+                            <i class="fas fa-play me-2"></i>Saylovni boshlash
+                        </a>
+                        {% elif election_status == 'Aktiv' %}
+                        <a href="{{ url_for('end_election', election_id=active_election.id) }}" class="btn btn-danger">
+                            <i class="fas fa-stop me-2"></i>Saylovni yakunlash
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('results') }}" class="btn btn-info">
+                            <i class="fas fa-chart-pie me-2"></i>Natijalarni ko'rish
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Hozirda aktiv saylov mavjud emas.
+                    </div>
+                    <div class="d-grid">
+                        <a href="{{ url_for('manage_elections') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Yangi saylov yaratish
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-server me-2"></i>Blockchain ma'lumotlari</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <strong>Blockchain holati:</strong> 
+                                {% if blockchain_status == 'Ulangan' %}
+                                <span class="text-success"><i class="fas fa-check-circle me-1"></i>Ulangan</span>
+                                {% else %}
+                                <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Ulanmagan</span>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Admin manzili:</strong>
+                                <span class="eth-address-display" data-address="{{ current_user.eth_address }}">
+                                    {{ current_user.eth_address }}
+                                </span>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Smart kontrakt manzili:</strong>
+                                <span class="eth-address">{{ config.CONTRACT_ADDRESS }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <strong>Nomzodlar soni:</strong> {{ candidates_count }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Saylov holati:</strong> {{ election_status }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

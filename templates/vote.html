@@ -1,0 +1,171 @@
+{% extends "layout.html" %}
+
+{% block title %}Ovoz berish - {{ candidate.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <!-- Nomzod haqida ma'lumot -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-lg rounded-4 mb-4 position-sticky" style="top: 20px;">
+                <div class="position-relative">
+                    {% if candidate.image_url %}
+                    <img src="{{ candidate.image_url }}" class="card-img-top rounded-top-4" alt="{{ candidate.name }}" style="height: 300px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-light rounded-top-4 d-flex align-items-center justify-content-center" style="height: 300px;">
+                        <i class="fas fa-user-circle fa-6x text-secondary"></i>
+                    </div>
+                    {% endif %}
+                    
+                    {% if candidate.party %}
+                    <div class="position-absolute bottom-0 end-0 bg-primary text-white px-4 py-2 rounded-start-pill m-3">
+                        {{ candidate.party }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <h2 class="card-title mb-3">{{ candidate.name }}</h2>
+                    
+                    {% if candidate.bio %}
+                    <div class="card-text mb-4">
+                        <h5 class="text-muted mb-3">Nomzod haqida</h5>
+                        <p>{{ candidate.bio }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex align-items-center">
+                        <div class="blockchain-id me-3">
+                            <span class="badge bg-secondary py-2 px-3">ID: {{ candidate.blockchain_id }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ovoz berish formasi -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-lg rounded-4 mb-4">
+                <div class="card-header bg-primary text-white p-4 rounded-top-4">
+                    <h2 class="m-0"><i class="fas fa-vote-yea me-2"></i>Ovoz berish</h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="voting-info alert alert-info mb-4">
+                        <h5 class="alert-heading">Muhim ma'lumot!</h5>
+                        <p>Ovoz berish uchun Ethereum private key kerak bo'ladi. Bu kalit ro'yxatdan o'tish vaqtida berilgan. Ovoz berish tranzaksiyasi blockchain orqali amalga oshiriladi va qaytarib bo'lmaydi.</p>
+                        <hr>
+                        <p class="mb-0">Ethereum manzilingiz: <span class="fw-bold user-address">{{ current_user.eth_address }}</span></p>
+                    </div>
+                    
+                    <form method="POST" action="{{ url_for('vote', candidate_id=candidate.id) }}" class="needs-validation" novalidate>
+                        <div class="mb-4">
+                            <label for="private_key" class="form-label">Ethereum Private Key</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password" class="form-control form-control-lg" id="private_key" name="private_key" required placeholder="0x...">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePrivateKey">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">
+                                Private key kiriting
+                            </div>
+                            <div class="form-text">Private key xavfsiz yuboriladi va saqlanmaydi</div>
+                        </div>
+                        
+                        <div class="voting-confirmation">
+                            <div class="form-check mb-4">
+                                <input class="form-check-input" type="checkbox" value="" id="confirmVote" required>
+                                <label class="form-check-label" for="confirmVote">
+                                    Men <span class="fw-bold">{{ candidate.name }}</span> nomzodiga ovoz berishimni tasdiqlayman. Bu harakatni qaytarib bo'lmaydi.
+                                </label>
+                                <div class="invalid-feedback">
+                                    Ovoz berishni tasdiqlashingiz kerak
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg py-3">
+                                <i class="fas fa-check-circle me-2"></i>Ovoz berish
+                            </button>
+                            <a href="{{ url_for('candidates') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Orqaga qaytish
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h4 class="card-title mb-3">Blockchain ovoz berish haqida</h4>
+                    <p class="card-text">Blockchain texnologiyasi yordamida ovoz berish quyidagi afzalliklarga ega:</p>
+                    <ul class="fa-ul">
+                        <li><span class="fa-li"><i class="fas fa-shield-alt text-success"></i></span>Xavfsiz va shaffof ovoz berish</li>
+                        <li><span class="fa-li"><i class="fas fa-lock text-success"></i></span>O'zgartirib bo'lmaydigan natijalar</li>
+                        <li><span class="fa-li"><i class="fas fa-user-secret text-success"></i></span>Ovoz beruvchilarning maxfiyligi</li>
+                        <li><span class="fa-li"><i class="fas fa-check-double text-success"></i></span>Bir foydalanuvchi - bir ovoz tamoyili</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Private keyni ko'rsatish/yashirish
+    document.getElementById('togglePrivateKey').addEventListener('click', function() {
+        const privateKeyInput = document.getElementById('private_key');
+        const eyeIcon = this.querySelector('i');
+        
+        if (privateKeyInput.type === 'password') {
+            privateKeyInput.type = 'text';
+            eyeIcon.classList.remove('fa-eye');
+            eyeIcon.classList.add('fa-eye-slash');
+        } else {
+            privateKeyInput.type = 'password';
+            eyeIcon.classList.remove('fa-eye-slash');
+            eyeIcon.classList.add('fa-eye');
+        }
+    });
+    
+    // Form validatsiya
+    (function() {
+        'use strict'
+        const forms = document.querySelectorAll('.needs-validation');
+        
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                
+                form.classList.add('was-validated');
+            }, false);
+        });
+    })();
+</script>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .rounded-4 {
+        border-radius: 1rem!important;
+    }
+    
+    .rounded-top-4 {
+        border-top-left-radius: 1rem!important;
+        border-top-right-radius: 1rem!important;
+    }
+    
+    .user-address {
+        font-family: monospace;
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+</style>
+{% endblock %}

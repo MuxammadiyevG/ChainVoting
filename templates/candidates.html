@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+
+{% block title %}Nomzodlar{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="display-4 text-primary">Nomzodlar</h1>
+                {% if active_election %}
+                <div class="badge bg-success p-3 fs-5">
+                    <i class="fas fa-vote-yea me-2"></i>Saylov faol
+                </div>
+                {% else %}
+                <div class="badge bg-secondary p-3 fs-5">
+                    <i class="fas fa-clock me-2"></i>Saylov faol emas
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if not candidates %}
+    <div class="alert alert-info shadow-sm">
+        <h3 class="mb-0"><i class="fas fa-info-circle me-2"></i>Hozirda nomzodlar ro'yxati mavjud emas</h3>
+    </div>
+    {% else %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for candidate in candidates %}
+        <div class="col">
+            <div class="card h-100 hover-card border-0 shadow-sm">
+                <div class="position-relative">
+                    {% if candidate.image_url %}
+                    <img src="{{ candidate.image_url }}" class="card-img-top candidate-img" alt="{{ candidate.name }}">
+                    {% else %}
+                    <div class="candidate-placeholder">
+                        <i class="fas fa-user-circle fa-4x"></i>
+                    </div>
+                    {% endif %}
+                    {% if candidate.party %}
+                    <div class="party-badge">{{ candidate.party }}</div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title">{{ candidate.name }}</h3>
+                    {% if candidate.bio %}
+                    <p class="card-text text-muted">{{ candidate.bio|truncate(100) }}</p>
+                    {% endif %}
+                    
+                    {% if votes is defined %}
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ (candidate.votes / total_votes * 100) if total_votes else 0 }}%"></div>
+                    </div>
+                    <p class="fw-bold">{{ candidate.votes }} ovoz</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    {% if active_election and current_user.is_authenticated and not current_user.has_voted %}
+                    <a href="{{ url_for('vote', candidate_id=candidate.id) }}" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-vote-yea me-2"></i>Ovoz berish
+                    </a>
+                    {% elif current_user.has_voted %}
+                    <button class="btn btn-secondary btn-lg w-100" disabled>
+                        <i class="fas fa-check-circle me-2"></i>Siz ovoz bergansiz
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-secondary btn-lg w-100" disabled>
+                        <i class="fas fa-clock me-2"></i>Ovoz berish mumkin emas
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    
+    .candidate-img {
+        height: 250px;
+        object-fit: cover;
+    }
+    
+    .candidate-placeholder {
+        height: 250px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        color: #adb5bd;
+    }
+    
+    .party-badge {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background-color: rgba(13, 110, 253, 0.8);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 50px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}

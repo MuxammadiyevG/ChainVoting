@@ -1,0 +1,129 @@
+{% extends 'layout.html' %}
+
+{% block title %}Nomzod qo'shish{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin panel</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Nomzod qo'shish</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-plus me-2"></i>Yangi nomzod qo'shish</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Xabarlar uchun konteyner -->
+                    <div id="alerts-container">
+                        <!-- Flash xabarlar bu yerda ko'rsatiladi -->
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    
+                    <!-- Nomzod qo'shish formasi -->
+                    <form id="add-candidate-form" method="POST" action="{{ url_for('add_candidate') }}" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="candidate-name" class="form-label">Nomzod to'liq ismi <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="candidate-name" name="name" required>
+                                    <div class="form-text">Nomzodning FIO.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="candidate-party" class="form-label">Partiya yoki tashkilot</label>
+                                    <input type="text" class="form-control" id="candidate-party" name="party">
+                                    <div class="form-text">Nomzod qaysi partiya yoki tashkilotdan.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="candidate-image" class="form-label">Nomzod surati</label>
+                                    <input class="form-control" type="file" id="candidate-image" name="image" accept="image/*">
+                                    <div class="form-text">JPG, PNG yoki GIF formatdagi rasm.</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="candidate-bio" class="form-label">Nomzod haqida qisqacha ma'lumot</label>
+                                    <textarea class="form-control" id="candidate-bio" name="bio" rows="9"></textarea>
+                                    <div class="form-text">Nomzod haqida biografik ma'lumot, tajribasi va saylovdagi rejalar.</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Diqqat!</strong> Nomzodni qo'shgandan so'ng uni o'chirib bo'lmaydi. Bu amal blockchain tarmog'ida qayd etiladi.
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Orqaga qaytish
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Nomzodni saqlash
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Rasm yuklanganida preview ko'rsatish
+    document.getElementById('candidate-image').addEventListener('change', function(event) {
+        const fileInput = event.target;
+        
+        if (fileInput.files && fileInput.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // Agar avvalgi preview bo'lsa o'chirish
+                const oldPreview = document.getElementById('image-preview-container');
+                if (oldPreview) {
+                    oldPreview.remove();
+                }
+                
+                // Yangi preview konteynerini yaratish
+                const previewContainer = document.createElement('div');
+                previewContainer.id = 'image-preview-container';
+                previewContainer.className = 'mt-2';
+                
+                const previewImage = document.createElement('img');
+                previewImage.src = e.target.result;
+                previewImage.className = 'img-thumbnail';
+                previewImage.style.maxHeight = '200px';
+                
+                previewContainer.appendChild(previewImage);
+                
+                // Preview ni formaga qo'shish
+                fileInput.parentNode.appendChild(previewContainer);
+            }
+            
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+    });
+</script>
+{% endblock %}
