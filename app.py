@@ -6,24 +6,24 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 from dotenv import load_dotenv
 from web3 import Web3
+from flask import current_app
 
-# Loyiha modullarini import qilish
 from models.models import db, User, Candidate, Election
 from utils.blockchain import BlockchainClient
 from utils.helpers import generate_ethereum_account, format_address, validate_ethereum_address
 from config import Config
+import csv
+from io import StringIO
+from flask import make_response
 
-# .env faylini o'qish
 load_dotenv()
 
-# Flask ilovasini yaratish
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ma'lumotlar bazasini inizializatsiya qilish
 db.init_app(app)
 
-# Login manager sozlash
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -32,16 +32,13 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Global blockchain client
+
 blockchain = None
 
 @app.before_request
 def before_first_request():
     global blockchain
-    # Ma'lumotlar bazasini yaratish
     db.create_all()
-    
-    # Admin foydalanuvchisini yaratish (agar yo'q bo'lsa)
     admin = User.query.filter_by(username='admin').first()
     if admin is None:
         eth_account = generate_ethereum_account()
@@ -51,28 +48,57 @@ def before_first_request():
             eth_address=eth_account['address'],
             is_admin=True
         )
-        admin.set_password('admin123')  # Bu yerda xavfsiz parol qo'yish kerak
+        admin.set_password('admin123') 
         db.session.add(admin)
         db.session.commit()
         print(f"Admin yaratildi. ETH Address: {eth_account['address']}")
         print(f"Admin private key: {eth_account['private_key']}")
         print("Bu ma'lumotlarni saqlang! Ularni .env fayliga yozib qo'ying.")
+        
+        with open(".env", "a") as env_file:
+            env_file.write(f"\nADMIN_ADDRESS={eth_account['address']}\n")
+            env_file.write(f"ADMIN_PRIVATE_KEY={eth_account['private_key']}\n")
     
-    # Blockchain clientni yaratish
+    
+    abi_path = os.path.join(app.root_path, 'contracts/abi.json')
+    if not os.path.exists(abi_path):
+        
+        os.makedirs(os.path.dirname(abi_path), exist_ok=True)
+        
+        try:
+            from contracts.compile import deploy_contract
+            admin_private_key = app.config.get('ADMIN_PRIVATE_KEY')
+            provider_url = app.config.get('BLOCKCHAIN_PROVIDER')
+            
+            if admin_private_key:
+                print("Kontraktni deploy qilish...")
+                contract_address, _ = deploy_contract(provider_url, admin_private_key)
+                print(f"Kontrakt muvaffaqiyatli deploy qilindi: {contract_address}")
+                
+                
+                app.config['CONTRACT_ADDRESS'] = contract_address
+            else:
+                print("Admin private key topilmadi. Kontraktni deploy qilib bo'lmaydi.")
+        except Exception as e:
+            print(f"Kontraktni deploy qilishda xatolik: {str(e)}")
+    
+    
     try:
         blockchain = BlockchainClient()
         print(f"Blockchain ga ulanish: {'Muvaffaqiyatli' if blockchain.is_connected() else 'Muvaffaqiyatsiz'}")
+        print(f"Kontrakt o'rnatilgan: {'Ha' if blockchain.is_contract_deployed() else 'Yo\'q'}")
     except Exception as e:
         print(f"Blockchain ga ulanishda xatolik: {str(e)}")
+        
+        
 
-# Bosh sahifa
 @app.route('/')
 def index():
-    # Aktiv saylovni olish
+    
     active_election = Election.query.filter_by(is_active=True).first()
     return render_template('index.html', active_election=active_election)
 
-# Ro'yxatdan o'tish
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -81,7 +107,7 @@ def register():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        # Validatsiya
+        
         if not username or not email or not password:
             flash('Barcha maydonlarni to\'ldiring', 'danger')
             return redirect(url_for('register'))
@@ -90,16 +116,16 @@ def register():
             flash('Parollar mos kelmadi', 'danger')
             return redirect(url_for('register'))
             
-        # Foydalanuvchini tekshirish
+        
         existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
         if existing_user:
             flash('Bunday foydalanuvchi yoki email mavjud', 'danger')
             return redirect(url_for('register'))
             
-        # Ethereum akkountini yaratish
+        
         eth_account = generate_ethereum_account()
         
-        # Yangi foydalanuvchini yaratish
+        
         new_user = User(
             username=username,
             email=email,
@@ -109,17 +135,24 @@ def register():
         
         db.session.add(new_user)
         db.session.commit()
+                        
+        try:
+            blockchain.send_eth(new_user.eth_address, 1)
+            flash(f'1 ETH muvaffaqiyatli yuborildi! Manzil: {format_address(new_user.eth_address)}', 'success')
+        except Exception as e:
+            flash(f'ETH yuborishda xatolik: {str(e)}', 'warning')
+        
         
         flash(f'Ro\'yxatdan o\'tdingiz! Ethereum address: {eth_account["address"]}', 'success')
         flash(f'Ethereum private key: {eth_account["private_key"]}. Bu kalitni saqlang!', 'warning')
         
-        # Foydalanuvchini tizimga kiritish
+        
         login_user(new_user)
         return redirect(url_for('index'))
         
     return render_template('register.html')
 
-# Tizimga kirish
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -137,7 +170,7 @@ def login():
             
     return render_template('login.html')
 
-# Tizimdan chiqish
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -148,13 +181,13 @@ def logout():
 # Nomzodlar ro'yxati
 @app.route('/candidates')
 def candidates():
-    # Barcha nomzodlarni olish
+    
     candidates_list = Candidate.query.all()
     
-    # Aktiv saylovni olish
+    
     active_election = Election.query.filter_by(is_active=True).first()
     
-    # Blockchaindagi ovozlarni olish
+    
     if blockchain and blockchain.is_connected() and active_election:
         for candidate in candidates_list:
             try:
@@ -166,23 +199,31 @@ def candidates():
                 
     return render_template('candidates.html', candidates=candidates_list, active_election=active_election)
 
-# Ovoz berish
 @app.route('/vote/<int:candidate_id>', methods=['GET', 'POST'])
 @login_required
 def vote(candidate_id):
-    # Aktiv saylovni tekshirish
+    
     active_election = Election.query.filter_by(is_active=True).first()
     if not active_election:
         flash('Hozirda aktiv saylov yo\'q', 'warning')
         return redirect(url_for('candidates'))
     
-    # Foydalanuvchi ovoz berganligini tekshirish
+    
     if current_user.has_voted:
         flash('Siz allaqachon ovoz bergansiz', 'warning')
         return redirect(url_for('results'))
     
-    # Nomzodni olish
+    
     candidate = Candidate.query.get_or_404(candidate_id)
+    
+    
+    w3 = Web3(Web3.HTTPProvider(app.config['BLOCKCHAIN_PROVIDER']))
+    balance = w3.eth.get_balance(current_user.eth_address)
+    min_required = w3.to_wei(0.0001, 'ether')  
+    
+    if balance < min_required:
+        flash(f'Sizning hisobingizda yetarli ETH mavjud emas. Kamida 0.0001 ETH talab qilinadi. Hozirgi balans: {w3.from_wei(balance, "ether")} ETH', 'danger')
+        return redirect(url_for('candidates'))
     
     if request.method == 'POST':
         private_key = request.form.get('private_key')
@@ -192,10 +233,10 @@ def vote(candidate_id):
             return redirect(url_for('vote', candidate_id=candidate_id))
         
         try:
-            # Blockchainda ovoz berish
+            
             receipt = blockchain.vote(private_key, current_user.eth_address, candidate.blockchain_id)
             
-            # Foydalanuvchining ovoz berganligini belgilash
+            
             current_user.has_voted = True
             db.session.commit()
             
@@ -203,62 +244,74 @@ def vote(candidate_id):
             return redirect(url_for('results'))
         except Exception as e:
             flash(f'Ovoz berishda xatolik: {str(e)}', 'danger')
-            
-    return render_template('vote.html', candidate=candidate)
+    
+    
+    balance_eth = w3.from_wei(balance, 'ether')
+    
+    return render_template('vote.html', candidate=candidate, balance=balance_eth)
 
-# Natijalar
 @app.route('/results')
 def results():
     candidates_list = []
-    
-    # Aktiv saylovni olish
-    active_election = Election.query.filter_by(is_active=True).first()
-    
+
+    election = Election.query.order_by(Election.end_date.desc()).first()
+
     if blockchain and blockchain.is_connected():
         try:
-            # Blockchaindagi barcha nomzodlarni olish
-            candidates_list = blockchain.get_all_candidates()
+            raw_candidates = blockchain.get_all_candidates()
+
             
-            # Nomzodlar haqida qo'shimcha ma'lumotlarni olish
-            for candidate_data in candidates_list:
-                db_candidate = Candidate.query.filter_by(blockchain_id=candidate_data['id']).first()
-                if db_candidate:
-                    candidate_data['full_name'] = db_candidate.name
-                    candidate_data['party'] = db_candidate.party
-                    candidate_data['image_url'] = db_candidate.image_url
-                    
+            seen_ids = set()
+            for c in raw_candidates:
+                if c['id'] not in seen_ids:
+                    seen_ids.add(c['id'])
+                    db_candidate = Candidate.query.filter_by(blockchain_id=c['id']).first()
+                    if db_candidate:
+                        c['full_name'] = db_candidate.name
+                        c['party'] = db_candidate.party
+                        c['image_url'] = db_candidate.image_url
+                    candidates_list.append(c)
+
         except Exception as e:
             flash(f'Natijalarni olishda xatolik: {str(e)}', 'danger')
-            
-    return render_template('results.html', candidates=candidates_list, active_election=active_election)
 
-# Admin panel - boshqaruv
+    return render_template('results.html', candidates=candidates_list, active_election=election)
+
+
+
+
+
+
 @app.route('/admin')
 @login_required
 def admin_dashboard():
     if not current_user.is_admin:
         abort(403)  # Ruxsat yo'q
         
-    # Statistikani olish
+    
     users_count = User.query.count()
     candidates_count = Candidate.query.count()
     elections_count = Election.query.count()
     
-    # Aktiv saylovni olish
+    
     active_election = Election.query.filter_by(is_active=True).first()
     
-    # Blockchain holati
+    
     blockchain_status = "Ulanmagan"
     election_status = "Nofaol"
     
     if blockchain and blockchain.is_connected():
         blockchain_status = "Ulangan"
         
-        if blockchain.contract.functions.electionStarted().call():
+        try:
+            if blockchain.contract.functions.electionStarted().call():
                 if blockchain.contract.functions.electionEnded().call():
                     election_status = "Yakunlangan"
                 else:
                     election_status = "Aktiv"
+        except Exception as e:
+            print(f"Blockchain holatini tekshirishda xatolik: {str(e)}")
+            # Xatolik bo'lganda dastur ishini davom ettirish
     
     return render_template('admin/dashboard.html', 
                            users_count=users_count,
@@ -267,20 +320,18 @@ def admin_dashboard():
                            active_election=active_election,
                            blockchain_status=blockchain_status,
                            election_status=election_status)
-
-# Admin panel - nomzod qo'shish
+    
 @app.route('/admin/add_candidate', methods=['GET', 'POST'])
 @login_required
 def add_candidate():
     if not current_user.is_admin:
-        abort(403)  # Ruxsat yo'q
-    
+        abort(403)
+
     if request.method == 'POST':
         name = request.form.get('name')
         party = request.form.get('party')
         bio = request.form.get('bio')
-        
-        # Rasmni yuklash
+
         image_url = None
         if 'image' in request.files:
             image = request.files['image']
@@ -289,14 +340,11 @@ def add_candidate():
                 filepath = os.path.join(app.root_path, 'static/images/candidates', filename)
                 image.save(filepath)
                 image_url = f'/static/images/candidates/{filename}'
-        
-        # Nomzodni blockchain ga qo'shish
+
         try:
-            receipt = blockchain.add_candidate(name)
-            # Blockchainda qo'shilgan nomzod ID sini olish
-            blockchain_id = blockchain.get_candidates_count()
             
-            # Ma'lumotlar bazasiga nomzodni qo'shish
+            blockchain_id = blockchain.add_candidate(name)
+
             new_candidate = Candidate(
                 name=name,
                 party=party,
@@ -304,18 +352,19 @@ def add_candidate():
                 image_url=image_url,
                 blockchain_id=blockchain_id
             )
-            
+
             db.session.add(new_candidate)
             db.session.commit()
-            
-            flash(f'Nomzod {name} muvaffaqiyatli qo\'shildi!', 'success')
+
+            flash(f'Nomzod {name} muvaffaqiyatli qo‘shildi!', 'success')
             return redirect(url_for('admin_dashboard'))
+
         except Exception as e:
-            flash(f'Nomzodni qo\'shishda xatolik: {str(e)}', 'danger')
-    
+            flash(f'Nomzodni qo‘shishda xatolik: {str(e)}', 'danger')
+
     return render_template('admin/add_candidate.html')
 
-# Admin panel - foydalanuvchilarni boshqarish
+
 @app.route('/admin/manage_users')
 @login_required
 def manage_users():
@@ -325,7 +374,7 @@ def manage_users():
     users = User.query.all()
     return render_template('admin/manage_users.html', users=users)
 
-# Admin panel - saylovni boshqarish
+
 @app.route('/admin/manage_elections', methods=['GET', 'POST'])
 @login_required
 def manage_elections():
@@ -339,10 +388,9 @@ def manage_elections():
         end_date_str = request.form.get('end_date')
         
         try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
             
-            # Yangi saylovni qo'shish
             new_election = Election(
                 title=title,
                 description=description,
@@ -361,25 +409,30 @@ def manage_elections():
     elections = Election.query.all()
     return render_template('admin/manage_elections.html', elections=elections)
 
-# Admin panel - saylovni boshlatish
+
 @app.route('/admin/start_election/<int:election_id>')
 @login_required
 def start_election(election_id):
     if not current_user.is_admin:
-        abort(403)  # Ruxsat yo'q
+        abort(403)  
     
     election = Election.query.get_or_404(election_id)
     
-    # Boshqa aktiv saylovlarni to'xtatish
+     
+    candidates_count = Candidate.query.count()
+    if candidates_count == 0:
+        flash("Saylovni boshlash uchun kamida bitta nomzod qo'shilishi kerak", "danger")
+        return redirect(url_for('admin_dashboard'))
+    
     active_elections = Election.query.filter_by(is_active=True).all()
     for active_election in active_elections:
         active_election.is_active = False
     
-    # Yangi saylovni aktivlashtirish
+    
     election.is_active = True
     db.session.commit()
     
-    # Blockchainda saylovni boshlatish
+    
     try:
         blockchain.start_election()
         flash(f'Saylov "{election.title}" boshlandi!', 'success')
@@ -388,12 +441,12 @@ def start_election(election_id):
     
     return redirect(url_for('admin_dashboard'))
 
-# Admin panel - saylovni yakunlash
+
 @app.route('/admin/end_election/<int:election_id>')
 @login_required
 def end_election(election_id):
     if not current_user.is_admin:
-        abort(403)  # Ruxsat yo'q
+        abort(403) 
     
     election = Election.query.get_or_404(election_id)
     
@@ -401,11 +454,10 @@ def end_election(election_id):
         flash('Bu saylov hozirda aktiv emas', 'warning')
         return redirect(url_for('admin_dashboard'))
     
-    # Blockchainda saylovni yakunlash
+    
     try:
         blockchain.end_election()
         
-        # Ma'lumotlar bazasida saylovni yakunlash
         election.is_active = False
         db.session.commit()
         
@@ -414,6 +466,102 @@ def end_election(election_id):
         flash(f'Saylovni yakunlashda xatolik: {str(e)}', 'danger')
     
     return redirect(url_for('admin_dashboard'))
+
+
+
+@app.route('/admin/fund_user/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def fund_user(user_id):
+    if not current_user.is_admin:
+        abort(403)  
+    
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        amount = float(request.form.get('amount', 0.1))
+        
+        try:
+            w3 = Web3(Web3.HTTPProvider(current_app.config['BLOCKCHAIN_PROVIDER']))
+            admin_address = current_app.config['ADMIN_ADDRESS']
+            admin_private_key = current_app.config['ADMIN_PRIVATE_KEY']
+            
+            amount_wei = w3.to_wei(amount, 'ether')
+            
+            
+            tx = {
+                'from': admin_address,
+                'to': user.eth_address,
+                'value': amount_wei,
+                'gas': 21000,
+                'gasPrice': w3.eth.gas_price,
+                'nonce': w3.eth.get_transaction_count(admin_address)
+            }
+            
+            
+            signed_tx = w3.eth.account.sign_transaction(tx, admin_private_key)
+            tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            
+            flash(f'Foydalanuvchi {user.username} hisobiga {amount} ETH muvaffaqiyatli yuborildi!', 'success')
+            return redirect(url_for('manage_users'))
+        except Exception as e:
+            flash(f'Hisobni to\'ldirishda xatolik: {str(e)}', 'danger')
+    
+    return render_template('admin/fund_user.html', user=user)
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', user=current_user)
+
+
+@app.route('/results/download')
+@login_required
+def download_results():
+    election = Election.query.order_by(Election.end_date.desc()).first()
+    if not election:
+        flash("Saylov topilmadi", "danger")
+        return redirect(url_for('results'))
+
+    
+    candidates_list = []
+
+    try:
+        raw_candidates = blockchain.get_all_candidates()
+
+        seen_ids = set()
+        for c in raw_candidates:
+            if c['id'] not in seen_ids:
+                seen_ids.add(c['id'])
+                db_candidate = Candidate.query.filter_by(blockchain_id=c['id']).first()
+                if db_candidate:
+                    c['full_name'] = db_candidate.name
+                    c['party'] = db_candidate.party
+                    c['image_url'] = db_candidate.image_url
+                candidates_list.append(c)
+    except Exception as e:
+        flash(f'Natijalarni olishda xatolik: {str(e)}', 'danger')
+        return redirect(url_for('results'))
+
+    
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow(['ID', 'Ism', 'Partiya', 'Ovozlar', 'Blockchain ID'])
+
+    for c in candidates_list:
+        writer.writerow([
+            c.get('id'),
+            c.get('full_name', ''),
+            c.get('party', ''),
+            c.get('votes') or c.get('voteCount', 0),
+            c.get('id')  
+        ])
+
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=saylov_natijalari.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
 
 if __name__ == '__main__':
     app.run(debug=True)

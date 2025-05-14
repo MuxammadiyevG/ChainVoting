@@ -23,27 +23,43 @@
             </div>
         </div>
     </div>
+    
+    <!-- Umumiy natijalar blokiga joylashtiring -->
 
     {% if not candidates %}
     <div class="alert alert-info shadow-sm">
         <h3 class="mb-0"><i class="fas fa-info-circle me-2"></i>Hozirda natijalar mavjud emas</h3>
     </div>
     {% else %}
-    
-    <!-- Ovozlar diagrammasi -->
+    {% if candidates %}
+    {% set top_candidate = candidates|sort(attribute='votes', reverse=true)|first %}
+    {% set total_votes = candidates|sum(attribute='votes') %}
+    {% set top_percentage = (top_candidate.votes / total_votes * 100) if total_votes else 0 %}
+  
     <div class="row mb-5">
-        <div class="col-lg-8 col-md-10 mx-auto">
-            <div class="card border-0 shadow-lg rounded-4">
-                <div class="card-body p-4">
-                    <h3 class="card-title mb-4"><i class="fas fa-chart-pie me-2"></i>Umumiy natijalar</h3>
-                    <div class="chart-container" style="position: relative; height:400px;">
-                        <canvas id="resultsChart"></canvas>
-                    </div>
-                </div>
-            </div>
+      <div class="col-lg-8 mx-auto">
+        <div class="card border-0 shadow-lg rounded-4 bg-light text-center py-5 px-4 position-relative">
+          <div class="position-absolute top-0 start-50 translate-middle badge bg-warning fs-5 px-4 py-2 shadow-sm" style="border-radius: 1rem;">
+            <i class="fas fa-trophy me-2"></i>Saylov g‘olibi
+          </div>
+  
+          {% if top_candidate.image_url %}
+            <img src="{{ top_candidate.image_url }}" class="rounded-circle shadow mb-4 mt-4" width="120" height="120" style="object-fit: cover;" alt="{{ top_candidate.full_name or top_candidate.name }}">
+          {% endif %}
+  
+          <h2 class="fw-bold display-5 mb-2">{{ top_candidate.full_name or top_candidate.name }}</h2>
+          <p class="text-muted fs-5 mb-2">{{ top_candidate.party or "—" }}</p>
+  
+          <div class="d-flex justify-content-center align-items-center gap-4 mt-3">
+            <span class="badge bg-success fs-5 px-4 py-2"><i class="fas fa-vote-yea me-2"></i>{{ top_candidate.votes }} ovoz</span>
+            <span class="badge bg-primary fs-5 px-4 py-2">{{ "%.2f"|format(top_percentage) }}%</span>
+          </div>
         </div>
+      </div>
     </div>
-    
+  {% endif %}
+  
+
     <!-- Nomzodlar jadvali -->
     <div class="row">
         <div class="col-12">
@@ -64,49 +80,57 @@
                                     <th class="py-3 pe-4">Grafik</th>
                                 </tr>
                             </thead>
+                            
                             <tbody>
+                                {% set unique_ids = [] %}
                                 {% set total_votes = candidates|sum(attribute='votes') %}
                                 {% for candidate in candidates|sort(attribute='votes', reverse=true) %}
-                                <tr>
-                                    <td class="ps-4">{{ loop.index }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            {% if candidate.image_url %}
-                                            <img src="{{ candidate.image_url }}" class="rounded-circle me-3" width="50" height="50" style="object-fit: cover;" alt="{{ candidate.full_name or candidate.name }}">
-                                            {% else %}
-                                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
-                                                <i class="fas fa-user text-secondary"></i>
+                                  {% if candidate.id not in unique_ids %}
+                                    <!-- unique_ids ro'yxatini yangilash uchun dublikatlarni tashlab yuborish -->
+                                    {% set _ = unique_ids.append(candidate.id) %}
+                                    <tr>
+                                        <td class="ps-4">{{ loop.index }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if candidate.image_url %}
+                                                <img src="{{ candidate.image_url }}" class="rounded-circle me-3" width="50" height="50" style="object-fit: cover;" alt="{{ candidate.full_name or candidate.name }}">
+                                                {% else %}
+                                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                                    <i class="fas fa-user text-secondary"></i>
+                                                </div>
+                                                {% endif %}
+                                                <div>
+                                                    <h5 class="mb-0">{{ candidate.full_name or candidate.name }}</h5>
+                                                    <p class="text-muted mb-0">ID: {{ candidate.id }}</p>
+                                                </div>
                                             </div>
-                                            {% endif %}
-                                            <div>
-                                                <h5 class="mb-0">{{ candidate.full_name or candidate.name }}</h5>
-                                                <p class="text-muted mb-0">ID: {{ candidate.id }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>{{ candidate.party or '—' }}</td>
-                                    <td class="fw-bold">{{ candidate.votes }}</td>
-                                    <td>
-                                        {% set percentage = (candidate.votes / total_votes * 100) if total_votes else 0 %}
-                                        <span class="fw-bold">{{ "%.2f"|format(percentage) }}%</span>
-                                    </td>
-                                    <td class="pe-4">
-                                        <div class="progress" style="height: 10px; width: 100%;">
+                                        </td>
+                                        <td>{{ candidate.party or '—' }}</td>
+                                        <td class="fw-bold">{{ candidate.votes }}</td>
+                                        <td>
                                             {% set percentage = (candidate.votes / total_votes * 100) if total_votes else 0 %}
-                                            {% if loop.index == 1 %}
-                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ percentage }}%"></div>
-                                            {% elif loop.index == 2 %}
-                                                <div class="progress-bar bg-primary" role="progressbar" style="width: {{ percentage }}%"></div>
-                                            {% elif loop.index == 3 %}
-                                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ percentage }}%"></div>
-                                            {% else %}
-                                                <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ percentage }}%"></div>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
+                                            <span class="fw-bold">{{ "%.2f"|format(percentage) }}%</span>
+                                        </td>
+                                        <td class="pe-4">
+                                            <div class="progress" style="height: 10px; width: 100%;">
+                                                {% set percentage = (candidate.votes / total_votes * 100) if total_votes else 0 %}
+                                                {% if loop.index == 1 %}
+                                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ percentage }}%"></div>
+                                                {% elif loop.index == 2 %}
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ percentage }}%"></div>
+                                                {% elif loop.index == 3 %}
+                                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ percentage }}%"></div>
+                                                {% else %}
+                                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ percentage }}%"></div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                  {% endif %}
                                 {% endfor %}
-                            </tbody>
+                              </tbody>
+                              
+                              
                         </table>
                     </div>
                 </div>
@@ -115,8 +139,8 @@
                         <i class="fas fa-users text-primary me-2"></i>
                         <span class="fw-bold">Jami ovozlar: {{ total_votes }}</span>
                     </div>
-                    <div>
-                        <a href="#" class="btn btn-outline-primary">
+                    <div class="text-end mt-3">
+                        <a href="{{ url_for('download_results') }}" class="btn btn-outline-primary">
                             <i class="fas fa-download me-2"></i>Natijalarni yuklab olish
                         </a>
                     </div>
@@ -125,6 +149,9 @@
         </div>
     </div>
     
+
+    
+
     <!-- Saylov statistikasi -->
     <div class="row mt-5">
         <div class="col-md-4 mb-4">

@@ -1,0 +1,134 @@
+{% extends 'layout.html' %}
+
+{% block title %}Foydalanuvchilarni Boshqarish{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Foydalanuvchilarni Boshqarish</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Barcha foydalanuvchilar</span>
+            <span class="badge bg-primary">Jami: {{ users|length }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Foydalanuvchi nomi</th>
+                            <th>Email</th>
+                            <th>Ethereum Manzil</th>
+                            <th>Ro'yxatdan o'tgan sana</th>
+                            <th>Admin</th>
+                            <th>Ovoz bergan</th>
+                            <th>Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <span class="eth-address" title="{{ user.eth_address }}">
+                                    {{ user.eth_address[:6] }}...{{ user.eth_address[-4:] if user.eth_address else "" }}
+                                </span>
+                            </td>
+                            <td>{{ user.registered_on.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if user.is_admin %}
+                                <span class="badge bg-success">Admin</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Foydalanuvchi</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.has_voted %}
+                                <span class="badge bg-info">Ovoz bergan</span>
+                                {% else %}
+                                <span class="badge bg-warning">Ovoz bermagan</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#viewUserModal{{ user.id }}">
+                                        <i class="bi bi-eye"></i> Ko'rish
+                                    </button>
+                                    <a href="{{ url_for('fund_user', user_id=user.id) }}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-cash"></i> Hisobni to'ldirish
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- MODALLAR: HAR BIR USER UCHUN -->
+                {% for user in users %}
+                <div class="modal fade" id="viewUserModal{{ user.id }}" tabindex="-1" aria-labelledby="viewUserModalLabel{{ user.id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content rounded-4">
+                            <div class="modal-header bg-light">
+                                <h5 class="modal-title" id="viewUserModalLabel{{ user.id }}">Foydalanuvchi ma'lumotlari</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+                            </div>
+                            <div class="modal-body">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>ID:</strong> {{ user.id }}</li>
+                                    <li class="list-group-item"><strong>Foydalanuvchi nomi:</strong> {{ user.username }}</li>
+                                    <li class="list-group-item"><strong>Email:</strong> {{ user.email }}</li>
+                                    <li class="list-group-item"><strong>Ethereum manzil:</strong> <span class="text-break">{{ user.eth_address }}</span></li>
+                                    <li class="list-group-item"><strong>Ro‘yxatdan o‘tgan:</strong> {{ user.registered_on.strftime('%Y-%m-%d %H:%M') }}</li>
+                                    <li class="list-group-item"><strong>Admin:</strong> {{ "Ha" if user.is_admin else "Yo‘q" }}</li>
+                                    <li class="list-group-item"><strong>Ovoz bergan:</strong> {{ "Ha" if user.has_voted else "Yo‘q" }}</li>
+                                </ul>
+                            </div>
+                            <div class="modal-footer bg-light">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.eth-address').forEach(element => {
+        element.addEventListener('click', function() {
+            const tempInput = document.createElement('input');
+            tempInput.value = this.title;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const originalText = this.textContent;
+            this.textContent = 'Nusxa olindi!';
+            setTimeout(() => {
+                this.textContent = originalText;
+            }, 1000);
+        });
+    });
+</script>
+{% endblock %}

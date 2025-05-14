@@ -27,9 +27,8 @@ def validate_ethereum_address(address):
         return False
         
     try:
-        # Manzil to'g'ri formatda ekanligini tekshirish
         int(address, 16)
-        # Uzunlikni tekshirish (0x + 40 ta belgi)
+        
         return len(address) == 42
     except:
         return False

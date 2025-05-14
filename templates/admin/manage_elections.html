@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+
+{% block title %}Yangi saylov yaratish{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+  <!-- 1. Saylov yaratish formasi -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-md-8 col-lg-6">
+      <div class="card border-0 shadow-lg rounded-4">
+        <div class="card-body p-5">
+          <h2 class="mb-4 text-center text-primary"><i class="fas fa-plus-circle me-2"></i>Yangi saylov yaratish</h2>
+          <form method="POST" action="{{ url_for('manage_elections') }}">
+            <div class="mb-3">
+              <label for="title" class="form-label fw-semibold">Saylov nomi</label>
+              <input type="text" class="form-control form-control-lg" id="title" name="title" placeholder="Masalan: Prezident saylovi 2025" required>
+            </div>
+            <div class="mb-3">
+              <label for="description" class="form-label fw-semibold">Izoh</label>
+              <textarea class="form-control" id="description" name="description" rows="3" placeholder="Saylov haqida ma’lumot..." required></textarea>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="start_date" class="form-label fw-semibold">Boshlanish sanasi</label>
+                <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="end_date" class="form-label fw-semibold">Yakunlanish sanasi</label>
+                <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
+              </div>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary btn-lg mt-3">
+                <i class="fas fa-check-circle me-2"></i>Yaratish
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Saylovlar ro‘yxati (jadval bilan) -->
+  <div class="card shadow rounded-4">
+    <div class="card-body p-4">
+      <h4 class="mb-4"><i class="fas fa-list me-2"></i>Saylovlar ro‘yxati</h4>
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Sarlavha</th>
+              <th>Boshlanish</th>
+              <th>Tugash</th>
+              <th>Holat</th>
+              <th>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for election in elections %}
+            <tr>
+              <td>{{ election.id }}</td>
+              <td>{{ election.title }}</td>
+              <td>{{ election.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>{{ election.end_date.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                {% if election.is_active %}
+                  <span class="badge bg-success">Faol</span>
+                {% else %}
+                  <span class="badge bg-secondary">Nofaol</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if not election.is_active %}
+                <a href="{{ url_for('start_election', election_id=election.id) }}" class="btn btn-sm btn-primary">
+                  <i class="fas fa-play"></i> Faollashtir
+                </a>
+                {% else %}
+                <a href="{{ url_for('end_election', election_id=election.id) }}" class="btn btn-sm btn-danger">
+                  <i class="fas fa-stop-circle"></i> Yakunla
+                </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
