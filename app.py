@@ -321,7 +321,10 @@ def admin_dashboard():
                            blockchain_status=blockchain_status,
                            election_status=election_status)
     
+"""   
+
 @app.route('/admin/add_candidate', methods=['GET', 'POST'])
+
 @login_required
 def add_candidate():
     if not current_user.is_admin:
@@ -363,6 +366,52 @@ def add_candidate():
             flash(f'Nomzodni qo‘shishda xatolik: {str(e)}', 'danger')
 
     return render_template('admin/add_candidate.html')
+
+"""
+
+@app.route('/admin/add_candidate', methods=['GET', 'POST'])
+@login_required
+def add_candidate():
+    if not current_user.is_admin:
+        abort(403)
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        party = request.form.get('party')
+        bio = request.form.get('bio')
+
+        image_url = None
+        if 'image' in request.files:
+            image = request.files['image']
+            if image.filename:
+                filename = secure_filename(image.filename)
+                filepath = os.path.join(app.root_path, 'static/images/candidates', filename)
+                image.save(filepath)
+                image_url = f'/static/images/candidates/{filename}'
+
+        try:
+            # ✅ Nomzodni blockchain ga faqat bir marta qo‘shamiz
+            blockchain_id = blockchain.add_candidate(name)
+
+            new_candidate = Candidate(
+                name=name,
+                party=party,
+                bio=bio,
+                image_url=image_url,
+                blockchain_id=blockchain_id
+            )
+
+            db.session.add(new_candidate)
+            db.session.commit()
+
+            flash(f'Nomzod {name} muvaffaqiyatli qo‘shildi!', 'success')
+            return redirect(url_for('admin_dashboard'))
+
+        except Exception as e:
+            flash(f'Nomzodni qo‘shishda xatolik: {str(e)}', 'danger')
+
+    return render_template('admin/add_candidate.html')
+
 
 
 @app.route('/admin/manage_users')
